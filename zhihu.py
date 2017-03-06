@@ -8,7 +8,7 @@ import os
 import json
 
 
-url = 'https://www.zhihu.com/question/37787176'
+url = 'https://www.zhihu.com/question/35496412'
 
 if not os.path.exists('images'):
     os.mkdir("images")
@@ -16,13 +16,14 @@ if not os.path.exists('images'):
 page_size = 50
 offset = 0
 url_content = urllib2.urlopen(url).read().decode("utf-8") 
+
 answers = re.findall('h3 data-num="(.*?)"', url_content)
 limits = int(answers[0])
 
 while offset < limits:
     post_url = "http://www.zhihu.com/node/QuestionAnswerListV2"
     params = json.dumps({
-        'url_token': 37787176,
+        'url_token': 35496412,
         'pagesize': page_size,
         'offset': offset
     })
@@ -37,11 +38,12 @@ while offset < limits:
         'Referer': url
     }
     response = requests.post(post_url, data=data, headers=header)
-    if(response.isempty()):
-        print ("null!!!")
+    # if(response.isempty()):
+    #     print ("null!!!")
     
     answer_list = response.json()["msg"]
-    img_urls = re.findall('img .*?src="(.*?_b.*?)"', ''.join(answer_list))
+    # img_urls = re.findall('img .*?src="(.*?_b.*?)"', ''.join(answer_list))
+    img_urls = re.findall(r'(?<=data-actualsrc=")[^"]*(?=">)', ''.join(answer_list))
     for img_url in img_urls:
         try:
             img_data = urllib2.urlopen(img_url).read()
