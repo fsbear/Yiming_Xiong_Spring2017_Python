@@ -278,6 +278,6 @@ plt.ylabel('Frequency')
 plt.title(" Machine Learning Trend")
 
 ```
-
+- And according to the graph, there is a pretty obvious trend of machine learning. After 2015, there is a huge bloom of machine learning.
 ---
 
