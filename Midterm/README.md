@@ -212,6 +212,72 @@ def authorFreq(authorList):
 
 #### Analysis 2 :
 - From the out put csv file from Ana 1 I got the list of all authors, then I use requests to request for best seller 
+- For each author in the list I made the request to ask for all the best seller books of that author
+```sh
+def getAllBestsellerBooks(authorList):
+    bestSellerList = []
+    for author in authorList:
+        payload = {
+            'api-key': key, 
+            'author': author
+        }
+        r = requests.get('https://api.nytimes.com/svc/books/v3/lists/best-sellers/history.json', params = payload).json()
+        try:
+            alist = [author, r["num_results"]]
+            bestSellerList.append(alist) 
+        except:
+            alist = [author, 0]
+            bestSellerList.append(alist)
+            
+        time.sleep(0.5)
+    return bestSellerList
+
+```
+- And count how many best seller books does each author have. and ouput the result to a csv file
+
+#### Analysis 3 :
+- For this analysis, I used a brand new API called Article, for this API, I made the request contain four attributes: query word, begin_date, end_date, and page
+```sh
+def getAllArticles():
+    i = 0
+    while(i < 200):
+        payload = {
+            'api-key': key, 
+            'q': "machine learning",
+            'begin_date': "20000101",
+            'end_date': "20170301",
+            'page': i
+        }
+        r = requests.get('https://api.nytimes.com/svc/search/v2/articlesearch.json', params = payload).json()  
+        path = os.path.dirname(os.getcwd())+ '/Data/articlesearch/'
+        filename = "articlesearch_page" + str(i)
+        i += 1
+        time.sleep(0.4)
+        with open(path + filename + '.json', 'a') as outfile:
+            json.dump(r, outfile)
+getAllArticles()
+```
+- I've count in each month how many article about machine learning is published and get the result in a list and then I used the ploting to plot the total trend of machine learning.
+
+```sh
+%matplotlib inline
+from matplotlib import pyplot as plt
+
+
+datetimeList = []
+for item in sorted_words:
+    date = datetime.strptime(item[0], '%Y-%m')
+    datetimeList.append(date)
+
+
+z_list = [z for [x, z] in sorted_words]
+
+plt.plot_date(datetimeList, z_list)
+plt.xlabel('Date')
+plt.ylabel('Frequency')
+plt.title(" Machine Learning Trend")
+
+```
 
 ---
 
