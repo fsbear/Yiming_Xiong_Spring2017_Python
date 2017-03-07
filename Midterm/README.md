@@ -149,17 +149,69 @@ print (sorted_words[0:20])
 ### Question 2 : 
 
 
-> In this qustion I selected two different API to apply data analysis. One is 
+> In this qustion I selected two different API to apply data analysis. One is the Books API and the other one is the Article API
+> In Ana1 I selected three kinds of catagory of books and find out all the author of those books and caoculate the how many books each author write
+> In Ana2 I use the best seller history api. What I have done is to fetch the author list from my previous work and use it as params to make a request to NYT and get the list of best seller books of each authors in each kind of listname
+> In Ana3 I applyed the article API, give it a time period (2000-01-01  to 2017-03-01) and a keyword: machine learning to count how many machine learning related article are published in that time period. 
 
 
 
-#### Instructions :
-- You would need to create an API key.
-- Use `request` or `beautiful-soap` library to download the data. (No other library or crawler allowed).
-- Store the data in your local machine.
-- Your analysis should use **this downloaded data only** (and not try to redownload this data again during analysis time).
--  There is a rate limit for downloading the data. I would suggest you to start collecting the data from day 1. You can try using multiple account to get more than 1 key.
--  You need to use atleast 2 API method eg: `archive`, `Article Search`. **Do not use** `Movies Review`, `Semantic` API.
+#### Analysis 1 :
+- I have choosen three different catagories of books to apply analysis, they are list_name = ['Business Books', 'Science', -'E-Book Fiction']
+- Because both Science books and Business books are published by NYT monthly, I made a function to iterate through all the sundays of the specific time period
+
+```sh
+def calculateDateRange(beginDate, endDate):
+    dateList = []
+    while(beginDate < endDate):
+        beginDate =  beginDate + relativedelta.relativedelta(months=1)
+        dateList.append(beginDate)
+    return dateList
+
+```
+- I used the following function to fetch those two data using calculateDateRange
+```sh
+def getData(dateList, listname):  
+    for date in dateList:        
+        payload = {
+            'api-key': key,
+            'list': listname,
+            'date': date
+
+        }
+        r = requests.get('https://api.nytimes.com/svc/books/v3/lists.json', params = payload).json()
+        time.sleep(1)
+        path = os.path.dirname(os.getcwd())+ '/Data/' + listname + 'bookList/'
+        filename = listname + str(date)
+        with open(path + filename + '.json', 'a') as outfile:
+            json.dump(r, outfile)
+```
+- And E-Book Fiction boonks dataset is released weekly so that I got to find the Sundays of each week
+```sh
+def calculateWeekDateRange(beginDate, endDate):
+    dateList = []
+    while(beginDate < endDate):
+        beginDate =  beginDate + relativedelta.relativedelta(days=7)
+#         print(beginDate)
+        dateList.append(beginDate)
+    return dateList
+```
+
+- After getting all the authors from the specific list_name, I wrote iteration to get how many books did each and every authors made
+```sh
+def authorFreq(authorList):
+    wordfreq  = FreqDist(authorList)
+    sorted_words = sorted(wordfreq.items(), key=lambda wordfreq: wordfreq[1], reverse=True)
+    
+    print (sorted_words[0:20])
+    return sorted_words
+
+```
+- Finally out put to csv file
+
+
+#### Analysis 2 :
+- From the out put csv file from Ana 1 I got the list of all authors, then I use requests to request for best seller 
 
 ---
 
