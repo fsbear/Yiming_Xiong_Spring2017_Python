@@ -1,0 +1,399 @@
+# Final Project - Spring 2017 INFO7374 Intro_Python  
+
+Yiming Xiong 
+00161641
+
+---
+
+### Question 1 : 
+
+> In this analysis, I used the Yelp v3 api to select and download those restaurants that still open at late night 1 am to find them all and write a function to rank all the results customized
+
+
+
+#### Instructions :
+#####For Analysis 1
+
+- Object: to find and sort resterarant which open at 1 am according to customers' need (for late night snack!!!)
+- First of all, I read through the API documentation of the whole API
+- Second, to get the token from the API which will allow me to get access to the dataset.(Authentication)
+```sh
+#CLIENT_ID = 'gBcvfFpabk3CnzmXKdYe3w'
+CLIENT_SECRET = 'K9dIltpo1DH4hTrKy6c7YhxR2bwENElpzqTEaRz44QXxKnImd3cSOnYmhrucVHns'
+API_HOST = 'https://api.yelp.com'
+SEARCH_PATH = '/v3/businesses/search'
+BUSINESS_PATH = '/v3/businesses/'  # Business ID will come after slash.
+TOKEN_PATH = '/oauth2/token'
+GRANT_TYPE = 'client_credentials'
+SEARCH_LIMIT = 50
+
+
+def obtaintoken(host, path):
+    url = '{0}{1}'.format(host, quote(path.encode('utf8')))
+    assert CLIENT_ID, "Please supply your client_id."
+    assert CLIENT_SECRET, "Please supply your client_secret."
+    data = urlencode({
+        'client_id': CLIENT_ID,
+        'client_secret': CLIENT_SECRET,
+        'grant_type': GRANT_TYPE,
+    })
+    headers = {
+        'content-type': 'application/x-www-form-urlencoded',
+    }
+    response = requests.request('POST', url, data=data, headers=headers)
+    token = response.json()['access_token']
+    return token
+
+token = obtaintoken(API_HOST, TOKEN_PATH)
+token
+```
+- Third, By checking the online documentation of the API I write the function to get all sort of information that I required for the analysis
+```sh
+ #def request(host, path, token, url_params=None):
+    url_params = url_params or {}
+    url = '{0}{1}'.format(host, quote(path.encode('utf8')))
+    headers = {
+        'Authorization': 'Bearer %s' % token,
+    }
+
+    print(u'Querying {0} ...'.format(url))
+
+    response = requests.request('GET', url, headers=headers, params=url_params)
+
+    return response.json()
+```
+- Fourth, I develop a few functions based on the request function to get specifc information 
+```sh
+#def search(token, term, location):
+    
+
+    url_params = {
+        'term': term.replace(' ', '+'),
+        'location': location.replace(' ', '+'),
+        'limit': SEARCH_LIMIT
+    }
+    return request(API_HOST, SEARCH_PATH, token, url_params=url_params)
+
+def get_business(token, business_id):
+    
+    business_path = BUSINESS_PATH + business_id
+
+    return request(API_HOST, business_path, token)
+
+def query_api(term, location):
+   
+
+    response = search(token, term, location)
+
+    businesses = response.get('businesses')
+
+    if not businesses:
+        print(u'No businesses for {0} in {1} found.'.format(term, location))
+        return
+
+    business_id = businesses[0]['id']
+
+    print(u'{0} businesses found, querying business info ' \
+        'for the top result "{1}" ...'.format(
+            len(businesses), business_id))
+    response = get_business(token, business_id)
+
+    print(u'Result for business "{0}" found:'.format(business_id))
+    pprint.pprint(response, indent=2)
+
+```
+- Then, since the API only receive the timestamp as a unixtime I have done some convert
+```sh
+#
+d = datetime.datetime(2017,4,24,1,0,0)
+unixtime = time.mktime(d.timetuple())
+unixtime=int(unixtime)
+        
+```
+- finally, get the result from the request to API
+```sh
+#
+def findallresult():
+    page = 0
+    url_params = {
+                'term': '',
+                'location': 'Boston, MA',
+                'limit': SEARCH_LIMIT,
+                'open_at':unixtime,               # Unix Timestamp
+                'offset':0
+            }
+    response1 = request(API_HOST, SEARCH_PATH, token, url_params=url_params)
+    with open('data/midnightsnack/page0.json', 'a') as outfile:
+        json.dump(response1, outfile)
+    
+    
+    
+    
+    
+    
+    while (page < (response1['total']/50)):
+
+        page = page + 1
+        url_params = {
+                'term': '',
+                'location': 'Boston, MA',
+                'limit': SEARCH_LIMIT,
+                'open_at':unixtime,               # Unix Timestamp
+                'offset':50*page
+
+            }
+
+        response = request(API_HOST, SEARCH_PATH, token, url_params=url_params)
+        with open('data/midnightsnack/page'+ str(page) +'.json', 'a') as outfile:
+            json.dump(response, outfile)
+        
+```
+- Next, load all json files and transfer it to dataframe and done some convert and done some santinization
+```sh
+#
+df = pd.DataFrame()
+for file in pathList:
+    with open(file) as data_file:    
+        datajson = json.load(data_file)
+        if 'businesses' in datajson:
+            df1 = json_normalize(datajson['businesses'])
+            df1 = df1.reindex(columns=dfsu.columns)
+            df2 = df1[['name','distance', 'price', 'rating', 'review_count', 'location.display_address']]
+            df = pd.concat([df,df2])
+df['price'].replace(['$'], '1',inplace=True)
+df['price'].replace(['$$'],'2',inplace=True)
+df['price'].replace(['$$$'], '3',inplace=True)
+df['price'].replace(['$$$$'],'4',inplace=True)
+df1 = df.dropna()
+        
+```
+- Last, fuction to customized sort the dataframe, you can input 'distance','price','rating','review_count' in any order and it will get the result after sorting
+```sh
+#
+def rankonneed(ranklist):
+    if len(ranklist) !=4:
+        print('the function take excatly 4 strings')
+    else:
+        asList = []
+        for i in ranklist:
+            if i=='price':
+                asList.extend([False])
+            elif i == 'rating' or i =='review_count' or i == 'distance':
+                asList.extend([True])  
+        print(asList)
+                
+        df2 = df1.sort_values([ranklist[0],ranklist[1],ranklist[2],ranklist[3]], ascending=asList).reset_index(drop=True)
+        df2.rename(columns={'name':'Business','review_count':'Popular', 'location.display_address':'Location'}, inplace=True)
+    return df2
+        
+```
+
+#####For Analysis 2
+- Continued with Analysis 1, I used the same way to get data.
+
+- But this time, I am getting all the reserants infive different cities
+
+- Boston, MA
+- New York, NY
+- Seattle, WA
+- Dallas, TX
+- Denver, CO
+
+###### Find Result
+
+#def findresult(place):
+ 
+    page = 0
+    url_params = {
+#                 'term': 'launch',
+                'location': place,
+                'limit': SEARCH_LIMIT,
+                'offset':0
+            }
+    response1 = request(API_HOST, SEARCH_PATH, token, url_params=url_params)
+    with open('data/consumptionlevel/'+ place.split(',')[0] + str(page) +'.json', 'a') as outfile:
+        json.dump(response1, outfile)
+
+    while (page < 19):
+#    due to the limitation of 1000
+        page = page + 1
+        url_params = {
+#                 'term': 'launch',
+                'location': place,
+                'limit': SEARCH_LIMIT,
+                'offset':50*page
+
+            }
+
+        response = request(API_HOST, SEARCH_PATH, token, url_params=url_params)
+        with open('data/consumptionlevel/'+ place.split(',')[0] + str(page) +'.json', 'a') as outfile:
+            json.dump(response, outfile)
+            
+            
+            
+###### After downloading the data I need, transver it to dataframe
+
+
+```sh
+def calculateEmailCommunication():
+#     iterate through PoiList
+    
+
+    dfbo=pd.DataFrame()
+dfny=pd.DataFrame()
+dfse=pd.DataFrame()
+dfda=pd.DataFrame()
+dfde=pd.DataFrame()
+for file in pathList:
+    if 'Boston' in file:
+        
+        with open(file) as data_file:    
+            datajson = json.load(data_file)
+            if 'businesses' in datajson:
+                df1 = json_normalize(datajson['businesses'])
+                df1 = df1.reindex(columns=['name', 'price', 'rating', 'review_count'])
+                df2 = df1[['name', 'price', 'rating', 'review_count']]
+                dfbo = pd.concat([dfbo,df2])
+                
+    if 'New York' in file:
+        with open(file) as data_file:    
+            datajson = json.load(data_file)
+            if 'businesses' in datajson:
+                df1 = json_normalize(datajson['businesses'])
+                df1 = df1.reindex(columns=['name', 'price', 'rating', 'review_count'])
+                df2 = df1[['name', 'price', 'rating', 'review_count']]
+                dfny = pd.concat([dfny,df2])
+                
+    if 'Seattle' in file:
+        with open(file) as data_file:    
+            datajson = json.load(data_file)
+            if 'businesses' in datajson:
+                df1 = json_normalize(datajson['businesses'])
+                df1 = df1.reindex(columns=['name', 'price', 'rating', 'review_count'])
+                df2 = df1[['name', 'price', 'rating', 'review_count']]
+                dfse = pd.concat([dfse,df2])
+                
+    if 'Dallas' in file:
+        with open(file) as data_file:    
+            datajson = json.load(data_file)
+            if 'businesses' in datajson:
+                df1 = json_normalize(datajson['businesses'])
+                df1 = df1.reindex(columns=['name', 'price', 'rating', 'review_count'])
+                df2 = df1[['name', 'price', 'rating', 'review_count']]
+                dfda = pd.concat([dfda,df2])
+                
+                
+    if 'Denver' in file:
+        with open(file) as data_file:    
+            datajson = json.load(data_file)
+            if 'businesses' in datajson:
+                df1 = json_normalize(datajson['businesses'])
+                df1 = df1.reindex(columns=['name', 'price', 'rating', 'review_count'])
+                df2 = df1[['name', 'price', 'rating', 'review_count']]
+                dfde = pd.concat([dfde,df2])
+```
+
+
+- Furthermore, I used a function to calculate consumption level:
+```sh
+def calculateconsumptionlevel(df):
+    df['consumptionlevel'] = df['price'].astype(float) * df['rating'].astype(float) * df['review_count'].astype(float)* 0.01
+ ```   
+ 
+ - After that, concat it together and do groupby sort:
+```sh
+df = pd.concat([dfbo1,dfny1,dfse1, dfda1, dfde1])
+df1 = pd.DataFrame(df.groupby(['region'], as_index=False).mean())
+
+
+ ```   
+ 
+ - Finally, use matplotlib library to plot the situation upon all the cities:
+```sh
+%matplotlib inline
+import numpy as np
+import matplotlib as mpl
+import matplotlib.pyplot as plt
+import seaborn as sns
+
+df2.plot(kind='bar', color='k', alpha=0.7) 
+ ```   
+    
+    
+#####For Analysis 3
+- Same way to get data from API and but this time getting data in New York region only. And sort by review_count and set categories to chinese food etc.
+```sh
+def findresult(categories):
+    page = 0
+    url_params = {
+                'location': 'New York, NY',
+                'limit': SEARCH_LIMIT,
+                'sort_by':'review_count',
+                'categories': categories,
+                'offset':0
+            }
+    response1 = request(API_HOST, SEARCH_PATH, token, url_params=url_params)
+    with open('data/foodcompare/'+ categories + str(page) +'.json', 'a') as outfile:
+        json.dump(response1, outfile)
+
+    while page < (response1['total']/50) and (page < 19):
+        page = page + 1
+        url_params = {
+                'location': 'New York, NY',
+                'limit': SEARCH_LIMIT,
+                'sort_by':'review_count',
+                'categories': categories,
+                'offset':50*page
+
+            }
+
+        response = request(API_HOST, SEARCH_PATH, token, url_params=url_params)
+        with open('data/foodcompare/' + categories + str(page) +'.json', 'a') as outfile:
+            json.dump(response, outfile)
+
+```
+- And load the data to pandas DataFrame
+- using function to find all business id from the data I distracted first time
+
+```sh
+def findid():
+    businessidlist = []
+    i = 0
+    while i < (len(dfch) -1):
+        businessid = str(dfch.iloc[i]['id'])
+        businessidlist.append(businessid)
+        i+=1
+    return businessidlist
+
+businessidlist= findid()
+```
+
+- Using a different API to get the reviews of the specific business
+```sh
+def getreview(businessid):
+    business_path = BUSINESS_PATH + businessid + '/reviews'
+    return request(API_HOST, business_path, token)
+```
+
+-Using NLTK package to do some words analysis on the content.
+```sh
+worddata = getreview(businessid)
+wordlist=[]
+
+for i in worddata['reviews']:
+    for word in i['text'].split():
+            if word.isalpha():
+                word = word.lower()
+                if word not in stopwords.words('english'):         
+                    wordlist.append(word)
+                    
+                    
+result = FreqDist(wordlist) 
+
+sorted_wordlist = sorted(result.items(), key=operator.itemgetter(1))
+sorted_wordlist.reverse()
+sorted_wordlist[:3]
+```
+
+
+---
